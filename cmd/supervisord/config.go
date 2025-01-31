@@ -9,7 +9,9 @@ import (
 )
 
 type ConfigProgram struct {
-	Command string `yaml:"command"`
+	Command     string `yaml:"command"`
+	Autorestart bool   `yaml:"autorestart"`
+	Autostart   bool   `yaml:"autostart"`
 }
 
 type Config struct {

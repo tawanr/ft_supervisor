@@ -3,14 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
-
-	"github.com/goccy/go-yaml"
 )
 
 const (
-	DEFAULT_CONFIG_FILE = "ft_supervisor.conf"
+	DEFAULT_CONFIG_FILE = "ft_supervisor.yaml"
 )
 
 func main() {
@@ -34,23 +31,19 @@ func main() {
 	// 	}(conn)
 	// }
 	configFile := flag.String("c", DEFAULT_CONFIG_FILE, "Location of the configuration file")
-	file, err := os.Open(*configFile)
+	config := NewConfigParser(*configFile, os.Stderr)
+	err := config.Parse()
 	if err != nil {
-		panic(err)
-	}
-	contents, err := io.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-	config := Config{}
-	err = yaml.Unmarshal(contents, &config)
-	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	err = config.Validate()
 	if err != nil {
-		println(err.Error())
-		return
+		panic(err.Error())
 	}
 	fmt.Println(config)
+	controller := NewController(config.Config)
+	err = controller.Start()
+	if err != nil {
+		panic(err.Error())
+	}
 }
