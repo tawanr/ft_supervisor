@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 		panic(err)
 	}
 	defer s.Close()
-	s.Write([]byte(args[0]))
+	s.Write([]byte(strings.Join(args, " ")))
 
 	buf := make([]byte, 1024)
 	for {

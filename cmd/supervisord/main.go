@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
+	"strings"
 )
 
 const (
@@ -56,7 +58,7 @@ func socketInput(controller *Controller) {
 		output := ""
 		exit, err := controllerCommand(controller, string(txt[:l]), &output)
 		if err != nil {
-			panic(err)
+			slog.Error(err.Error())
 		}
 		if len(output) > 0 {
 			conn.Write([]byte(output))
@@ -88,16 +90,23 @@ func promptInput(controller *Controller) {
 }
 
 func controllerCommand(controller *Controller, command string, output *string) (bool, error) {
-	switch command {
+	args := strings.Split(command, " ")
+	switch args[0] {
 	case "start":
-		return false, controller.Startup()
+		if len(args) == 1 {
+			return false, fmt.Errorf("Missing job name")
+		}
+		return false, controller.Start(args[1:])
 	case "stop":
-		return false, controller.Stop()
+		if len(args) == 1 {
+			return false, fmt.Errorf("Missing job name")
+		}
+		return false, controller.Stop(args[1:])
 	case "status":
 		*output = controller.Status()
 		return false, nil
 	case "exit":
-		controller.Stop()
+		controller.Exit()
 		return true, nil
 	default:
 		return false, fmt.Errorf("Unknown command %s", command)

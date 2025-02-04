@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ type Job struct {
 	isRunning bool
 	startTime time.Time
 	status    JobStatus
+	exited    chan bool
 }
 
 type JobStatus string
@@ -82,7 +84,25 @@ func (j *Job) Start() error {
 func (j *Job) Run() error {
 	path, args := ParseCommand(j.config.Command)
 	cmd := exec.Command(path, args...)
+
 	cmd.Stdout = os.Stdout
+	if j.config.Stdout != nil {
+		f, err := os.Create(*j.config.Stdout)
+		if err != nil {
+			return err
+		}
+		cmd.Stdout = f
+	}
+
+	if j.config.Stdin != nil {
+		f, err := os.Open(*j.config.Stdin)
+		if err != nil {
+			return err
+		}
+		stdin := bufio.NewReader(f)
+		cmd.Stdin = stdin
+	}
+
 	j.cmd = cmd
 	err := j.cmd.Start()
 	if err != nil {
@@ -91,7 +111,9 @@ func (j *Job) Run() error {
 	}
 	j.status = STATUS_RUNNING
 	j.isRunning = true
+	j.exited = make(chan bool)
 	err = j.cmd.Wait()
+	close(j.exited)
 	fmt.Printf("%d %s: Finished running EXIT: %d\n", os.Getpid(), j.name, j.cmd.ProcessState.ExitCode())
 	j.status = STATUS_EXITED
 	j.isRunning = false
@@ -107,7 +129,27 @@ func (j *Job) Status() string {
 }
 
 func (j *Job) Exit() error {
-	return nil
+	signal, exists := SIGNALS[j.config.Stopsignal]
+	if exists == false {
+		return fmt.Errorf("Unknown signal %s", j.config.Stopsignal)
+	}
+	err := j.cmd.Process.Signal(signal)
+	if err != nil {
+		return err
+	}
+	select {
+	case <-j.exited:
+		return nil
+	case <-time.After(time.Second * time.Duration(j.config.Stoptime)):
+		j.cmd.Process.Kill()
+		select {
+		case <-j.exited:
+			return nil
+		case <-time.After(time.Second * 10):
+			j.Kill()
+			return fmt.Errorf("Process did not exit after timeout. Forced kill.")
+		}
+	}
 }
 
 func (j *Job) Kill() error {

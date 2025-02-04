@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type Controller struct {
 	jobs map[string]*Job
 }
@@ -31,9 +33,54 @@ func (c *Controller) Status() string {
 	return status
 }
 
-func (c *Controller) Stop() error {
+func (c *Controller) Start(programs []string) error {
+	startingJobs := []*Job{}
+	if len(programs) == 1 && programs[0] == "all" {
+		for _, job := range c.jobs {
+			startingJobs = append(startingJobs, job)
+		}
+	} else {
+		for _, program := range programs {
+			_, exists := c.jobs[program]
+			if exists == false {
+				return fmt.Errorf("Job %s not found", program)
+			}
+			startingJobs = append(startingJobs, c.jobs[program])
+		}
+	}
+	for _, program := range startingJobs {
+		go program.Run()
+	}
+	return nil
+}
+
+func (c *Controller) Stop(programs []string) error {
+	stoppingJobs := []*Job{}
+	if len(programs) == 1 && programs[0] == "all" {
+		for _, job := range c.jobs {
+			stoppingJobs = append(stoppingJobs, job)
+		}
+	} else {
+		for _, program := range programs {
+			_, exists := c.jobs[program]
+			if exists == false {
+				return fmt.Errorf("Job %s not found", program)
+			}
+			stoppingJobs = append(stoppingJobs, c.jobs[program])
+		}
+	}
+	for _, program := range stoppingJobs {
+		err := program.Exit()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller) Exit() error {
 	for _, job := range c.jobs {
-		err := job.Kill()
+		err := job.Exit()
 		if err != nil {
 			return err
 		}
