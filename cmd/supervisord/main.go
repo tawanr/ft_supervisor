@@ -42,8 +42,37 @@ func main() {
 	}
 	fmt.Println(config)
 	controller := NewController(config.Config)
-	err = controller.Start()
+	err = controller.Startup()
 	if err != nil {
 		panic(err.Error())
+	}
+	for {
+		fmt.Print("> ")
+		command := ""
+		fmt.Scanln(&command)
+		exit, err := controllerCommand(controller, command)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		}
+		if exit == true {
+			break
+		}
+	}
+}
+
+func controllerCommand(controller *Controller, command string) (bool, error) {
+	switch command {
+	case "start":
+		return false, controller.Startup()
+	case "stop":
+		return false, controller.Stop()
+	case "status":
+		fmt.Println(controller.Status())
+		return false, nil
+	case "exit":
+		controller.Stop()
+		return true, nil
+	default:
+		return false, fmt.Errorf("Unknown command %s", command)
 	}
 }
