@@ -9,9 +9,11 @@ import (
 )
 
 type ConfigProgram struct {
-	Command     string `yaml:"command"`
+	Command     string `yaml:"command" validate:"required"`
 	Autorestart bool   `yaml:"autorestart"`
 	Autostart   bool   `yaml:"autostart"`
+	Exitcodes   []int  `yaml:"exitcodes"`
+	Stopsignal  string `yaml:"stopsignal"`
 }
 
 type Config struct {
@@ -25,6 +27,20 @@ type ConfigParser struct {
 	errorInterface io.Writer
 }
 
+func (p *ConfigProgram) setDefaults() {
+	p.Autorestart = true
+	p.Exitcodes = []int{0}
+	p.Stopsignal = "TERM"
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (p *ConfigProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Declaring a new type so that the custom unmarshaller for the current type is not called infinitely.
+	type plain ConfigProgram
+	p.setDefaults()
+	return unmarshal((*plain)(p))
+}
+
 func NewConfigParser(filepath string, errorInterface io.Writer) *ConfigParser {
 	return &ConfigParser{
 		filepath:       filepath,
@@ -32,6 +48,7 @@ func NewConfigParser(filepath string, errorInterface io.Writer) *ConfigParser {
 	}
 }
 
+// Parse parses the YAML config file and returns an error if there is one.
 func (c *ConfigParser) Parse() error {
 	file, err := os.Open(c.filepath)
 	contents, err := io.ReadAll(file)
@@ -50,6 +67,7 @@ func (c *ConfigParser) Parse() error {
 	return nil
 }
 
+// Validate validates the config file and returns an error if there is one.
 func (c *ConfigParser) Validate() error {
 	for name, program := range c.Config.Programs {
 		if program.Command == "" {
