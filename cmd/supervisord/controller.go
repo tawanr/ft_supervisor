@@ -28,9 +28,6 @@ func (c *Controller) Status() string {
 	for _, job := range c.jobs {
 		status += job.Status() + "\n"
 	}
-	if status[len(status)-1] == '\n' {
-		return status[:len(status)-1]
-	}
 	return status
 }
 

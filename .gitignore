@@ -27,3 +27,4 @@ go.work.sum
 bin/
 *.conf
 *.yaml
+*.sh

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -20,9 +21,14 @@ func main() {
 	s.Write([]byte(args[0]))
 
 	buf := make([]byte, 1024)
-	n, err := s.Read(buf)
-	if err != nil {
-		panic(err)
+	for {
+		n, err := s.Read(buf)
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			panic(err)
+		}
+		fmt.Print(string(buf[:n]))
 	}
-	fmt.Println(string(buf[:n]))
 }
