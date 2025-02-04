@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"os"
 )
@@ -15,6 +16,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer s.Close()
 	s.Write([]byte(args[0]))
-	s.Close()
+
+	buf := make([]byte, 1024)
+	n, err := s.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(buf[:n]))
 }

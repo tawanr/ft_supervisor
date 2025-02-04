@@ -81,7 +81,6 @@ func (j *Job) Start() error {
 // Run the job based on configuration
 func (j *Job) Run() error {
 	path, args := ParseCommand(j.config.Command)
-	fmt.Println(path, args)
 	cmd := exec.Command(path, args...)
 	cmd.Stdout = os.Stdout
 	j.cmd = cmd
