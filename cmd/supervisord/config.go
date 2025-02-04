@@ -9,11 +9,15 @@ import (
 )
 
 type ConfigProgram struct {
-	Command     string `yaml:"command" validate:"required"`
-	Autorestart bool   `yaml:"autorestart"`
-	Autostart   bool   `yaml:"autostart"`
-	Exitcodes   []int  `yaml:"exitcodes"`
-	Stopsignal  string `yaml:"stopsignal"`
+	Command     string  `yaml:"command" validate:"required"`
+	Autorestart bool    `yaml:"autorestart"`
+	Autostart   bool    `yaml:"autostart"`
+	Exitcodes   []int   `yaml:"exitcodes"`
+	Stopsignal  string  `yaml:"stopsignal"`
+	Stoptime    int     `yaml:"stoptime"`
+	Numprocs    int     `yaml:"numprocs"`
+	Stdin       *string `yaml:"stdin"`
+	Stdout      *string `yaml:"stdout"`
 }
 
 type Config struct {
@@ -29,8 +33,11 @@ type ConfigParser struct {
 
 func (p *ConfigProgram) setDefaults() {
 	p.Autorestart = true
+	p.Autostart = false
 	p.Exitcodes = []int{0}
 	p.Stopsignal = "TERM"
+	p.Stoptime = 0
+	p.Numprocs = 1
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
