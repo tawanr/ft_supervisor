@@ -82,41 +82,57 @@ func (j *Job) Start() error {
 
 // Run the job based on configuration
 func (j *Job) Run() error {
+	var err error
+
 	path, args := ParseCommand(j.config.Command)
-	cmd := exec.Command(path, args...)
 
-	cmd.Stdout = os.Stdout
-	if j.config.Stdout != nil {
-		f, err := os.Create(*j.config.Stdout)
+	for {
+		cmd := exec.Command(path, args...)
+
+		cmd.Stdout = os.Stdout
+		if j.config.Stdout != nil {
+			f, err := os.Create(*j.config.Stdout)
+			if err != nil {
+				return err
+			}
+			cmd.Stdout = f
+		}
+
+		if j.config.Stdin != nil {
+			f, err := os.Open(*j.config.Stdin)
+			if err != nil {
+				return err
+			}
+			stdin := bufio.NewReader(f)
+			cmd.Stdin = stdin
+		}
+
+		cmd.Env = j.config.GetEnvString()
+		cmd.Dir = j.config.WorkingDir
+
+		j.cmd = cmd
+		err = j.cmd.Start()
 		if err != nil {
+			fmt.Println(err.Error())
 			return err
 		}
-		cmd.Stdout = f
-	}
+		j.status = STATUS_RUNNING
+		j.isRunning = true
+		j.exited = make(chan bool)
+		err = j.cmd.Wait()
+		close(j.exited)
+		fmt.Printf("%d %s: Finished running EXIT: %d\n", os.Getpid(), j.name, j.cmd.ProcessState.ExitCode())
+		j.status = STATUS_EXITED
 
-	if j.config.Stdin != nil {
-		f, err := os.Open(*j.config.Stdin)
-		if err != nil {
-			return err
+		if !j.isRunning || j.config.Autorestart == AUTORESTART_NEVER {
+			break
 		}
-		stdin := bufio.NewReader(f)
-		cmd.Stdin = stdin
-	}
 
-	j.cmd = cmd
-	err := j.cmd.Start()
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
+		if j.isRunning && j.config.Autorestart == AUTORESTART_UNEXPECTED && !j.config.CheckExpectedExitCode(j.cmd.ProcessState.ExitCode()) {
+			j.isRunning = false
+			return nil
+		}
 	}
-	j.status = STATUS_RUNNING
-	j.isRunning = true
-	j.exited = make(chan bool)
-	err = j.cmd.Wait()
-	close(j.exited)
-	fmt.Printf("%d %s: Finished running EXIT: %d\n", os.Getpid(), j.name, j.cmd.ProcessState.ExitCode())
-	j.status = STATUS_EXITED
-	j.isRunning = false
 	return err
 }
 
@@ -133,6 +149,7 @@ func (j *Job) Exit() error {
 	if exists == false {
 		return fmt.Errorf("Unknown signal %s", j.config.Stopsignal)
 	}
+	j.isRunning = false
 	err := j.cmd.Process.Signal(signal)
 	if err != nil {
 		return err

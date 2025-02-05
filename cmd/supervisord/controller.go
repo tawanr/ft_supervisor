@@ -70,10 +70,8 @@ func (c *Controller) Stop(programs []string) error {
 		}
 	}
 	for _, program := range stoppingJobs {
-		err := program.Exit()
-		if err != nil {
-			return err
-		}
+		// TODO: Error handling
+		go program.Exit()
 	}
 	return nil
 }
