@@ -28,3 +28,4 @@ bin/
 *.conf
 *.yaml
 *.sh
+*.log

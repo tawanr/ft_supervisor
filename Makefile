@@ -12,3 +12,7 @@ build:
 clean:
 	rm -rf ${BIN_DIR}/*
 	rm ${SOCKET}
+
+re:
+	make clean
+	make all
