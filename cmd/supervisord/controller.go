@@ -3,7 +3,8 @@ package main
 import "fmt"
 
 type Controller struct {
-	jobs map[string]*Job
+	jobs     map[string]*Job
+	programs map[string][]*Job
 }
 
 func NewController(config Config) *Controller {
@@ -19,7 +20,7 @@ func NewController(config Config) *Controller {
 func (c *Controller) Startup() error {
 	for _, job := range c.jobs {
 		if job.config.Autostart == true {
-			go job.Run()
+			job.Run()
 		}
 	}
 	return nil
@@ -49,7 +50,7 @@ func (c *Controller) Start(programs []string) error {
 		}
 	}
 	for _, program := range startingJobs {
-		go program.Run()
+		program.Run()
 	}
 	return nil
 }

@@ -19,6 +19,7 @@ type Job struct {
 	startTime time.Time
 	status    JobStatus
 	exited    chan bool
+	Error     error
 }
 
 type JobStatus string
@@ -86,53 +87,62 @@ func (j *Job) Run() error {
 
 	path, args := ParseCommand(j.config.Command)
 
-	for {
-		cmd := exec.Command(path, args...)
-
-		cmd.Stdout = os.Stdout
-		if j.config.Stdout != nil {
-			f, err := os.Create(*j.config.Stdout)
-			if err != nil {
-				return err
+	go func() {
+		for {
+			cmd := exec.Command(path, args...)
+			if j.config.Umask != nil {
+				syscall.Umask(*j.config.Umask)
 			}
-			cmd.Stdout = f
-		}
 
-		if j.config.Stdin != nil {
-			f, err := os.Open(*j.config.Stdin)
-			if err != nil {
-				return err
+			cmd.Stdout = os.Stdout
+			if j.config.Stdout != nil {
+				f, err := os.Create(*j.config.Stdout)
+				if err != nil {
+					j.Error = err
+					return
+				}
+				cmd.Stdout = f
 			}
-			stdin := bufio.NewReader(f)
-			cmd.Stdin = stdin
-		}
 
-		cmd.Env = j.config.GetEnvString()
-		cmd.Dir = j.config.WorkingDir
+			if j.config.Stdin != nil {
+				f, err := os.Open(*j.config.Stdin)
+				if err != nil {
+					j.Error = err
+					return
+				}
+				stdin := bufio.NewReader(f)
+				cmd.Stdin = stdin
+			}
 
-		j.cmd = cmd
-		err = j.cmd.Start()
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		j.status = STATUS_RUNNING
-		j.isRunning = true
-		j.exited = make(chan bool)
-		err = j.cmd.Wait()
-		close(j.exited)
-		fmt.Printf("%d %s: Finished running EXIT: %d\n", os.Getpid(), j.name, j.cmd.ProcessState.ExitCode())
-		j.status = STATUS_EXITED
+			cmd.Env = j.config.GetEnvString()
+			cmd.Dir = j.config.WorkingDir
 
-		if !j.isRunning || j.config.Autorestart == AUTORESTART_NEVER {
-			break
-		}
+			j.cmd = cmd
+			err = j.cmd.Start()
+			if err != nil {
+				fmt.Println(err.Error())
+				j.Error = err
+				return
+			}
+			j.status = STATUS_RUNNING
+			j.isRunning = true
+			j.exited = make(chan bool)
+			err = j.cmd.Wait()
+			close(j.exited)
+			fmt.Printf("%d %s: Finished running EXIT: %d\n", os.Getpid(), j.name, j.cmd.ProcessState.ExitCode())
+			j.status = STATUS_EXITED
 
-		if j.isRunning && j.config.Autorestart == AUTORESTART_UNEXPECTED && !j.config.CheckExpectedExitCode(j.cmd.ProcessState.ExitCode()) {
-			j.isRunning = false
-			return nil
+			if !j.isRunning || j.config.Autorestart == AUTORESTART_NEVER {
+				break
+			}
+
+			if j.isRunning && j.config.Autorestart == AUTORESTART_UNEXPECTED && !j.config.CheckExpectedExitCode(j.cmd.ProcessState.ExitCode()) {
+				j.isRunning = false
+				return
+			}
+
 		}
-	}
+	}()
 	return err
 }
 

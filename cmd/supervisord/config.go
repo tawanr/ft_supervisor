@@ -26,6 +26,7 @@ type ConfigProgram struct {
 	Stdout      *string           `yaml:"stdout"`
 	Env         map[string]string `yaml:"env"`
 	WorkingDir  string            `yaml:"workingdir"`
+	Umask       *int              `yaml:"umask"`
 }
 
 type Config struct {
